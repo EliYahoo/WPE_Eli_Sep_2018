@@ -13,7 +13,7 @@ Memory efficient way to read file:
 """
 import re
 
-def logtolist(logfilename):
+def logtolist_long(logfilename):
 
     # Read file
     entries_list = []
@@ -26,4 +26,12 @@ def logtolist(logfilename):
                               r'(?P<request>GET[^\"]*)', line)
             entries_list.append(match.groupdict())
 
+
     return entries_list
+
+
+def logtolist(logfilename):
+    with open(logfilename, 'r') as f:
+        return [re.match(r'(?P<ip_address>(?:\d{1,3}\.){3}\d{1,3})'
+                         r'(?:.*)(?:\[(?P<timestamp>[^\]]*))(?:.*)'
+                         r'(?P<request>GET[^\"]*)', line).groupdict() for line in f]
