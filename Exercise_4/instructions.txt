@@ -1,0 +1,98 @@
+Last week, we wrote a function that turns a logfile into a list of dicts.  This week, we'll use what we did, turning it into a class from which we can retrieve information about that logfile.
+
+At the heart of this class will be the same list of dicts.  That is, when we create an instance of our LogDicts class, we'll load the entire file into memory.  (You can assume that the logfile isn't too big; perhaps in the future, we'll talk about "chunking" files that are too load to read all at once.)  Then, with that in place, we'll be able to invoke a number of different methods:
+    ld = LogDicts('mini-access-log.txt')
+
+Again, creating an instance of LogDicts will load the list of dicts into the object, making them available for our use.
+    ld.dicts(key=None)      # return the list of dicts, same as last week's exercise
+    ld.iterdicts(key=None)  # returns an iterator of dicts, rather than the list all at once
+
+    ld.earliest()   # returns the dict with the earliest timestamp
+    ld.latest()     # returns the dict with the latest timestamp
+
+In order for these two methods to work, you'll need to turn the timestamp into an actual time object. I'd suggest using time.strptime, although there are alternatives on PyPI that you might prefer, such as "arrow".
+    ld.for_ip(ip_address, key=None)   # returns all records for a particular IP address
+    ld.for_request(text, key=None)    # returns all records whose request contains text
+
+The above will return a subset of the list, filtering for certain IP addresses and text. The text can be a plain ol' string; you don't have to use a regexp. Unless you want to do so, of course...
+
+If you're wondering why ld.dicts, ld.iterdicts, and for_ip all take a "key" parameter, it's because we want our users to be able to sort the resulting list of dictionaries. For example, I should be able to say:
+    def by_ip_address(one_log_dict):
+        return one_log_dict['ip_address']
+
+    ld.dicts(key=by_ip_address)
+
+The function can be a lot more complex than this, if we want. But it's nice to be able to sort the results according to something we want, such as (for example) the path of the request.
+
+You can discuss this exercise in the forum.
+
+I'll be back with a solution on Monday.
+
+Reuven
+import solution
+import operator
+
+logfilename = 'mini-access-log.txt'
+
+def test_dicts_returns_list_of_dicts():
+    ld = solution.LogDicts(logfilename)
+    result = ld.dicts()
+    assert type(result) == list
+    assert all([type(one_item) == dict
+                for one_item in result])
+
+
+def test_iterdicts_returns_iterator_dicts():
+    ld = solution.LogDicts(logfilename)
+    result = ld.iterdicts()
+    assert iter(result) == result
+
+    result_list = list(result)
+    assert type(result_list) == list
+
+    assert all([type(one_item) == dict
+                for one_item in result])
+
+def test_sort_by_ip_address():
+    ld = solution.LogDicts(logfilename)
+    sorted_ld = ld.dicts(key=operator.itemgetter('ip_address'))
+
+    assert sorted_ld[0]['ip_address'] <= sorted_ld[1]['ip_address']
+    assert sorted_ld[0]['ip_address'] <= sorted_ld[-1]['ip_address']
+    assert sorted_ld[-2]['ip_address'] <= sorted_ld[-1]['ip_address']
+
+def test_sort_by_request():
+    ld = solution.LogDicts(logfilename)
+    sorted_ld = ld.dicts(key=operator.itemgetter('request'))
+
+    assert sorted_ld[0]['request'] <= sorted_ld[1]['request']
+    assert sorted_ld[0]['request'] <= sorted_ld[-1]['request']
+    assert sorted_ld[-2]['request'] <= sorted_ld[-1]['request']
+
+def test_earliest():
+    ld = solution.LogDicts(logfilename)
+    earliest = ld.earliest()
+
+    sorted_ld = ld.dicts(key=operator.itemgetter('timestamp'))
+    assert sorted_ld[0]['timestamp'] == earliest['timestamp']
+
+def test_latest():
+    ld = solution.LogDicts(logfilename)
+    latest = ld.latest()
+
+    sorted_ld = ld.dicts(key=operator.itemgetter('timestamp'))
+    assert sorted_ld[-1]['timestamp'] == latest['timestamp']
+
+def test_for_ip():
+    ld = solution.LogDicts(logfilename)
+    matching_requests = ld.for_ip("65.55.106.183")
+    assert len(matching_requests) == 2
+    assert all([one_item['ip_address'] == '65.55.106.183'
+                for one_item in matching_requests])
+
+def test_for_request():
+    ld = solution.LogDicts(logfilename)
+    matching_requests = ld.for_request("/robots.txt")
+    assert len(matching_requests) == 16
+    assert all(['/robots.txt' in one_item['request']
+                for one_item in matching_requests])
