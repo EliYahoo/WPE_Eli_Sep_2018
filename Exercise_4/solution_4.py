@@ -1,7 +1,18 @@
+"""
+Topics:
+    sorted()
+    filter()
+        sort according to key parameter
+    lambda functions
+"""
 import time
 import re
 
 logfilename = '../Exercise_3/mini-access-log.txt'
+
+
+def convert_time(dict_item):
+    return time.mktime(time.strptime(dict_item['timestamp'], "%d/%b/%Y:%H:%M:%S %z"))
 
 
 class LogDicts:
@@ -12,40 +23,38 @@ class LogDicts:
                                        r'(?P<request>GET[^\"]*)', line).groupdict() for line in f]
 
     def dicts(self, key=None):
-        if key is None:
-            return self.dict_list
-        elif key in self.dict_list:
-            return self.dict_list[key]
+        if key:
+            return sorted(self.dict_list, key=key)
 
-        return None
+        return self.dict_list
 
     def iterdicts(self, key=None):
-        for d in self.dict_list:
-            yield d
+        if key:
+            for item in sorted(self.dict_list, key):
+                yield item
+        else:
+            for item in self.dict_list:
+                yield item
 
     # returns the dict with the earliest timestamp
     def latest(self):
-        latest_time_dict = self.dict_list[-1]
-        latest_time = time.mktime(time.strptime(latest_time_dict['timestamp'], "%d/%b/%Y:%H:%M:%S %z"))
-
-        for d in self.dict_list:
-            if time.mktime(time.strptime(d['timestamp'], "%d/%b/%Y:%H:%M:%S %z")) > latest_time:
-                latest_time_dict = d
-                latest_time = time.mktime(time.strptime(latest_time_dict['timestamp'], "%d/%b/%Y:%H:%M:%S %z"))
-
-        return latest_time_dict
+        return max(self.dict_list, key=convert_time)
 
     # returns the dict with the latest timestamp
     def earliest(self):
-        earliest_time_dict = self.dict_list[0]
-        earliest_time = time.mktime(time.strptime(earliest_time_dict['timestamp'], "%d/%b/%Y:%H:%M:%S %z"))
+        return min(self.dict_list, key=convert_time)
 
-        for d in self.dict_list:
-            if time.mktime(time.strptime(d['timestamp'], "%d/%b/%Y:%H:%M:%S %z")) < earliest_time:
-                earliest_time_dict = d
-                earliest_time = time.mktime(time.strptime(earliest_time_dict['timestamp'], "%d/%b/%Y:%H:%M:%S %z"))
+    def for_ip(self, ip_address, key=None):
+        if key:
+            return sorted(list(filter(lambda item: item['ip_address'] == ip_address, self.dict_list)), key=key)
 
-        return earliest_time_dict
+        return list(filter(lambda item: item['ip_address'] == ip_address, self.dict_list))
+
+    def for_request(self, request, key=None):
+        if key:
+            return sorted(list(filter(lambda item: request in item['request'], self.dict_list)), key)
+
+        return list(filter(lambda item: request in item['request'], self.dict_list))
 
 
 def main():
@@ -59,6 +68,7 @@ def main():
 
     latest_dict = ld.latest()
     print("Latest " + latest_dict['timestamp'])
+
 
 if __name__ == "__main__":
     main()
