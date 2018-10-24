@@ -1,0 +1,264 @@
+Last week's exercise assumed that we had a file in the following format:
+67.218.116.165 - - [30/Jan/2010:00:03:18 +0200] "GET /robots.txt HTTP/1.0" 200 99 "-" "Mozilla/5.0 (Twiceler-0.9 http://www.cuil.com/twiceler/robot.html)"
+
+We then had to turn that file into a list of dictionaries, containing three pieces -- the IP address, the timestamp, and the query.
+
+This week, we wanted to make it easier for people to work with these sorts of logfiles. The essential reading and import of the logfile would stay the same, but we wanted to be able to retrieve them in different ways.
+
+The first requirement for our LogDicts class was to take a single parameter, the name of a file from which we would take the information:
+    ld = LogDicts('mini-access-log.txt')
+
+In addition, we are supposed to have two methods that allow users to get back our list of dicts, either all at once (ld.dicts) or in an iterator (ld.iterdicts).  These two methods will need to take a "key" parameter, allowing us to sort them in various ways, as well; we'll get to that in a moment.
+
+For starters, we can implement our class as follows:
+    #!/usr/bin/env python3
+
+    import re
+
+    class LogDicts(object):
+        def __init__(self, filename):
+            self._dicts = [self.line_to_dict(line)
+                          for line in open(filename)]
+
+        def dicts(self):
+            return self._dicts
+
+        def iterdicts(self):
+            return (item
+                    for item in self._dicts)
+
+        def line_to_dict(self, line):
+            regexp = '''
+            ((?:\d{1,3}\.){3}\d{1,3})       # IP addresses contain four numbers (each with 1-3 digits)
+            .*                              # Junk between IP address and timestamp
+            \[([^\]]+)\]                    # Timestamp, defined to be anything between [ and ]
+            .*                              # Junk between timestamp and request
+            "(GET[^"]+)"                    # Request, starting with GET 
+            '''                 
+            m = re.search(regexp, line, re.X)
+
+            if m:
+                ip_address = m.group(1)
+                timestamp = m.group(2)
+                request = m.group(3)
+
+            else:
+                ip_address = 'No IP address found'
+                timestamp = 'No timestamp found'
+                request = 'No request found'
+
+            output = {'ip_address': ip_address,
+                      'timestamp': timestamp,
+                      'request': request}
+            return output
+
+All I've done here is wrap the functionality from last week into a class, such that self._dicts contains a list of dicts.  I couldn't use the name "self.dicts", because our method was going to use it. And besides, I wanted to make sure that this attribute was tagged as private, so that people wouldn't touch it. A leading underscore (_) in Python indicates that an identifier is private, at least by convention.
+
+It might make more sense, especially when it comes to memory usage, to use a generator, rather than a list.  But then our object would be dependent on the filesystem, and wouldn't have the data in memory... so while it'll take more memory to actually store the list in memory, I'll do that anyway where, defining _dicts as a list.
+
+The "dicts" method returns the list that we have stored in self._dicts.  The "iterdicts" method needs to return an iterator; a simple way to do this is to use a generator expression, which looks like a list comprehension, but returns an iterator, instead.
+
+Just to double check things, I run some simple code:
+    ld = LogDicts('mini-access-log.txt')
+    print(type(ld.dicts()))
+    print(type(ld.iterdicts()))
+
+    print(len(ld.dicts()))
+    print(len(list(ld.dicts())))
+
+Sure enough, I get the following:
+    <type 'list'>
+    <type 'generator'>
+    206
+    206
+
+We're on the right track!  But now I want to let the user supply a function via the "key" parameter. We'll then sort the dictionaries based on the function.
+
+This sounds very difficult, but it's actually quite straightforward. That's because Python provides us with the "sorted" function, which also just so happens to take a "key" parameter that works in this way.
+
+The thing is, I didn't specify what should happen if no key is passed. I'll thus assume that if there is no key, we should not sort the results. And if there is a key, we'll use that in the sorting. Here's how those will look:
+    def dicts(self, key=None):
+        if key:
+            return sorted(self._dicts, key=key)
+        else:
+            return self._dicts
+
+    def iterdicts(self, key=None):
+        if key:
+            return (item
+                    for item in sorted(self._dicts, key=key))
+        else:
+            return (item
+                    for item in self._dicts)
+
+
+The above works well, as I can see from a few tests:
+    print ld.dicts(key=operator.itemgetter('ip_address'))[0]
+    print ld.dicts(key=operator.itemgetter('ip_address'))[-1]
+
+    print ld.dicts(key=operator.itemgetter('request'))[0]
+    print ld.dicts(key=operator.itemgetter('request'))[-1]
+
+    print list(ld.iterdicts(key=operator.itemgetter('request')))[0]
+    print list(ld.iterdicts(key=operator.itemgetter('request')))[-1]
+
+But just as I'm feeling good about my methods, it occurs to me that there is basically no difference between "dicts" and "iterdicts".  Why do I really need two methods?  I can implement "iterdicts", and then just have "dicts" return the result of invoking "list" on it.  Here's my updated version of the "dicts" method:
+    def dicts(self, key=None):
+        return list(self.iterdicts(key=key))
+
+Next, we want to have methods that return the earliest and latest timestamp. In order for this to work, we'll need to somehow turn the timestamp into an object that we can compare.  It's definitely possible to use time.strptime or datetime.datetime.strptime to parse dates and times in Python. However, I find it to be a bit frustrating to use. Moreover, on my computer (a Mac), I find that time-zone parsing doesn't always work.
+
+Fortunately, there's a great library on PyPI called "Arrow" which makes working with dates and times a snap. It's not quite smart enough to figure out the Apache format on its own, but I was quickly able to create a format string that arrow.get (its parsing function) could use. I could then do this:
+    ts1 = '30/Jan/2010:01:29:23 +0200'
+    a = arrow.get(ts1, 'DD/MMM/YYYY:HH:mm:ss Z')
+
+    ts2 = '31/Jan/2010:17:40:02 +0200'
+    b = arrow.get(ts2, 'DD/MMM/YYYY:HH:mm:ss Z')
+    print(ts1 < ts2)
+    print(ts1 > ts2)
+    print(ts1 == ts1)
+
+I get the following printed out:
+    True
+    False
+    True
+
+This means that if I can apply arrow.get with this format string to the timestamp, I can turn it into a comparable object. And once it's comparable, I can sort it, or get the first or last one.
+
+Now, I could once again use the "sorted" function, and then grab either index 0 or -1 from the resulting list. But I'm instead going to use the built-in "min" and "max" functions, both of which also take a "key" parameter, just like "sorted".
+
+But wait: What function will I use to sort? I want a function that I can apply to one of my dicts, extract the "timestamp" value, and then invoke arrow.gt on it with the timestamp I've devised for Arrow.  I am a big fan of lambda expressions, perhaps because I cut my programming teeth on Lisp, and I find them to be convenient. Here's how I combined "min" with a lambda expression, our dictionary key, and the format, which I stuck on the LogDicts object as a class attribute:
+    ts_format = 'DD/MMM/YYYY:HH:mm:ss Z'
+
+    def earliest(self):
+        return min(self._dicts,
+                   key=lambda d: arrow.get(d['timestamp'], self.ts_format))
+
+    def latest(self):
+        return max(self._dicts,
+                   key=lambda d: arrow.get(d['timestamp'], self.ts_format))
+        
+Finally, we want to let people retrieve all of the records matching an IP address, or containing a text string. Once again, I think that a list comprehension (or a generator expression) is the best way to go. The expression on the first line will be the dictionary itself. The second line will iterate over the elements of self._dicts, sorting by whatever key function the user gives.  And the third line of the list comprehension, where we do our filtering, lets us filter out dicts that don't match. The final versions of the methods are as follows:
+    def for_ip(self, ip_address, key=None):
+        if key is None:
+            key = lambda d: 1
+
+        return [d
+                for d in sorted(self._dicts, key=key)
+                if ip_address == d['ip_address']]
+
+    def for_request(self, text, key=None):
+        if key is None:
+            key = lambda d: 1
+
+        return [d
+                for d in sorted(self._dicts, key=key)
+                if text in d['request']]
+
+
+Wait a second -- what is going on at the start of each method? The problem is that in Python 3, we cannot compare dicts with < and >.  So it's not quite enough to pass through a "None" value if no sort key is passed. Thus, I use a bit of trickery, such that if we get "None" (i.e., no sort key), we use a function that returns the value 1. That way, we don't need to do any comparisons.
+
+And there we have it!  We now have a fully functioning class that represents our logs, and against which we can query things.
+
+Notice that aside from our logfile-parsing function, our methods are very short. This is thanks in no small part to the fact that I take advantage of Python's built-in methods, functions, and data structures. Moreover, I try to write my methods using functional style, such that I'm not creating or setting variables, but rather just using expressions to retrieve what I need.  Even though Python isn't a functional language, I do think that using functional tools and style makes the code more elegant.  That said, a combination of operator.itemgetter with lambda and arrow.get can admittedly be a bit dense and hard to parse for others.
+
+Ideas?  Talk about things in the forum!
+
+I'll be back on Monday with the next exercise.
+
+Reuven
+#!/usr/bin/env python
+
+import arrow
+import operator
+import re
+
+class LogDicts(object):
+    ts_format = 'DD/MMM/YYYY:HH:mm:ss Z'
+
+    def __init__(self, filename):
+        self._dicts = [self.line_to_dict(line)
+                      for line in open(filename)]
+        
+    def dicts(self, key=None):
+        return list(self.iterdicts(key=key))
+
+    def iterdicts(self, key=None):
+        if key:
+            return (item
+                    for item in sorted(self._dicts, key=key))
+        else:
+            return (item
+                    for item in self._dicts)
+
+    def line_to_dict(self, line):
+        regexp = '''
+        ((?:\d{1,3}\.){3}\d{1,3})       # IP addresses contain four numbers (each with 1-3 digits)
+        .*                              # Junk between IP address and timestamp
+        \[([^\]]+)\]                    # Timestamp, defined to be anything between [ and ]
+        .*                              # Junk between timestamp and request
+        "(GET[^"]+)"                    # Request, starting with GET 
+        '''                 
+        m = re.search(regexp, line, re.X)
+
+        if m:
+            ip_address = m.group(1)
+            timestamp = m.group(2)
+            request = m.group(3)
+
+        else:
+            ip_address = 'No IP address found'
+            timestamp = 'No timestamp found'
+            request = 'No request found'
+
+        output = {'ip_address': ip_address,
+                  'timestamp': timestamp,
+                  'request': request}
+        return output
+
+    def earliest(self):
+        return min(self._dicts,
+                   key=lambda d: arrow.get(d['timestamp'], self.ts_format))
+
+    def latest(self):
+        return max(self._dicts,
+                   key=lambda d: arrow.get(d['timestamp'], self.ts_format))
+        
+    def for_ip(self, ip_address, key=None):
+        if key is None:
+            key = lambda d: 1
+
+        return [d
+                for d in sorted(self._dicts, key=key)
+                if ip_address == d['ip_address']]
+
+    def for_request(self, text, key=None):
+        if key is None:
+            key = lambda d: 1
+
+        return [d
+                for d in sorted(self._dicts, key=key)
+                if text in d['request']]
+
+
+if __name__ == '__main__':
+    ld = LogDicts('mini-access-log.txt')
+    print(type(ld.dicts()))
+    print(type(ld.iterdicts()))
+    print(len(ld.dicts()))
+    print(len(list(ld.dicts())))
+
+    print(ld.dicts(key=operator.itemgetter('ip_address'))[0])
+    print(ld.dicts(key=operator.itemgetter('ip_address'))[-1])
+
+    print(ld.dicts(key=operator.itemgetter('request'))[0])
+    print(ld.dicts(key=operator.itemgetter('request'))[-1])
+
+    print(list(ld.iterdicts(key=operator.itemgetter('request')))[0])
+    print(list(ld.iterdicts(key=operator.itemgetter('request')))[-1])
+
+    print(ld.earliest())
+    print(ld.latest())
+
+    print(ld.for_ip("65.55.106.183"))
+    print(ld.for_request("/robots.txt"))
