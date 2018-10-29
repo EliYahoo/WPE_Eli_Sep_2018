@@ -10,7 +10,7 @@ gist_url = 'https://gist.githubusercontent.com/reuven/77edbb0292901f35019f17edb9
             '2bf258763cdddd704f8ffd3ea9a3e81d25e2c6f6/cities.json'
 
 
-def cities_to_csv(file_url, output_csv):
+def cities_to_csv_mine(file_url, output_csv):
     r = requests.get(file_url)
     j = r.json()
 
@@ -18,6 +18,15 @@ def cities_to_csv(file_url, output_csv):
         wr = csv.DictWriter(csv_file, fieldnames=['city', 'state', 'rank', 'population'],
                             extrasaction='ignore', delimiter='\t')
         wr.writerows(j)
+
+
+def cities_to_csv(file_url, output_csv):
+
+    with open(output_csv, 'w', newline='') as csv_file:
+        wr = csv.DictWriter(csv_file,
+                            fieldnames=['city', 'state', 'rank', 'population'],
+                            extrasaction='ignore', delimiter='\t')
+        wr.writerows(requests.get(file_url).json())
 
 
 def main():
