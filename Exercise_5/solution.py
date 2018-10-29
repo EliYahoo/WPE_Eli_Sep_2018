@@ -17,8 +17,7 @@ def cities_to_csv(file_url, output_csv):
     with open(output_csv, 'w', newline='') as csv_file:
         wr = csv.DictWriter(csv_file, fieldnames=['city', 'state', 'rank', 'population'],
                             extrasaction='ignore', delimiter='\t')
-        for row in j:
-            wr.writerow(row)
+        wr.writerows(j)
 
 
 def main():
