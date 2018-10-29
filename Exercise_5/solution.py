@@ -1,3 +1,8 @@
+'''
+Topics:
+    requests package for html requests
+    DictWriter - requires fieldnames dict and reads from dicts with the corresponding keys
+'''
 import csv
 import requests
 
