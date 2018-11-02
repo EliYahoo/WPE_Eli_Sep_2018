@@ -1,3 +1,11 @@
+'''
+Topics:
+    nested list comprehensions
+    Counter class
+    Statistics package - mean etc.
+
+    * To get unique values from list use set
+'''
 from collections import Counter
 from statistics import mean
 
