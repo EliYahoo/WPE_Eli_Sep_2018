@@ -1,3 +1,8 @@
+'''
+Topics:
+    Passing functions as arguments
+'''
+
 import os
 
 def func_to_dir(dir, func):
