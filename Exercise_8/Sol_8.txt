@@ -1,0 +1,66 @@
+This week, we looked at the construction of some simple math problems. The idea was that each problem would contain four integers, each of which was randomly chosen between -40 and 40. We would also have a random collection of operators (+ and -).
+
+The first part of the challenge was to create a number of problems that look like this:
+    [  1]   19 - (   1) - (   4) + (  28) = ______
+    [  2]  -18 + (   8) - (  16) - (   2) = ______
+    [  3]   -8 + (  17) - (  15) + ( -29) = ______
+    [  4]  -31 - ( -12) - (  -5) + ( -26) = ______
+    [  5]  -15 - (  12) - (  14) - (  31) = ______
+
+For starters, I want to have four numbers, each of which is in the range -40 to 40.  In order to pick random numbers from this range, I decided to use "range(-40, 40)", which returned a range of numbers from -40 to 40.  (OK, just until 39, but my son didn't notice or care.)
+
+I knew that I wanted to get four random numbers from this range, and I thus used "random.sample".  This is a handy function that lets me retrieve a number of elements (a sample, if you will) from an iterable.
+    number_source = range(-40, 40)
+    numbers = random.sample(number_source, 4)
+
+I also knew that I wanted to have a random assortment of signs.  Here, I could have chosen randomly each time I needed a sign.  I decided, instead, to build a list containing 4 times as many operators as were actually necessary, and then to retrieve a sample from those, too:
+    sign_source = [' + ', ' - '] * 4
+    signs = random.sample(sign_source, 3)
+
+Notice that I'm taking advantage here of the fact that we can multiply a list by an integer, getting a list back.  I purposely want the list to be long enough, for me to be choose from the operators.  I could have instead run a loop and chosen a random element from "signs" each time, as well -- the "random.choice" function is good for that.
+
+Assuming that I have a list "numbers" and a list "signs", I can then use an "f string" -- similar in many ways to the string in "str.format" to create a one-line math problem for each of our numbers.  Given a loop variable i that goes from 1 to 100, I can write the following:
+    f.write(f"[{i:3}] {numbers[0]:4}{signs[0]}({numbers[1]:4}){signs[1]}({numbers[2]:4}){signs[2]}({numbers[3]:4}) = ______\n")
+
+Notice that the f-string here is using one of my favorite parts of an f-string, namely the fact that I can set the number of characters in a field.  If I just say
+    f.write(f"{numbers[0]})
+
+that means I want to write the value of "numbers[0]" to the file "f".  But if I say
+    f.write(f"{numbers[0]:4})
+
+then that means I want the value of "numbers[0]" to be printed, on a field with a minimum of 4 characters.  This allows me to be sure that things align; I often use this functionality in f-strings to create columns in textual output.
+
+Finally, I use "with" to open the file for writing and to be sure that it has been flushed and closed at the end of the block.  You don't have to use "with", but it helps to ensure that we know when the contents have been written, and that we don't need to worry about things still being trapped in the buffer.
+
+To write the math problems, I can thus do the following:
+    number_source = range(-40, 40)
+    sign_source = [' + ', ' - '] * 4
+    filename = 'problems.txt'
+
+    with open(filename, 'w') as f:
+        for i in range(1,101):
+            numbers = random.sample(number_source, 4)
+            signs = random.sample(sign_source, 3)
+
+            f.write(f"[{i:3}] {numbers[0]:4}{signs[0]}({numbers[1]:4}){signs[1]}({numbers[2]:4}){signs[2]}({numbers[3]:4}) = ______\n")
+
+What about solving them?  I thought about a few ways to do this, but in the end I decided that it would be easiest to use Python's built-in "eval" function.  Now, I'm often fond of saying that there is a 75% overlap between "eval" and "evil", and that you should be really, really careful when you're using it.  But in this specific case, we have (a) text that we created, and (b) text that Python can interpret.  So I feel OK using it, despite my general reluctance to do so.
+
+(If you thought about using regular expressions to solve this, I'm totally with you!  But I decided that capturing four numbers and three signs was too annoying to use a regexp, even though that would probably work just fine.)
+
+"eval", in case you're not used to it, takes a string as an argument, and evaluates the string -- that is, it treats the string as a Python expression, and returns the value.
+
+The thing is, I don't want to run "eval" on the entire string; I just want to use it on part of the string.  I thus grab the eval-uable part of the string, putting it into a variable "problem", just so that I can control it more easily.
+
+I then print the entire original line, minus the "___" dashed line, as follows:
+    for one_line in open(filename):
+        problem = one_line[5:38]
+        print(f"{one_line[:38]} = {eval(problem):4}")
+
+And hey, it seems to work!
+
+Questions or comments should go to the forum.
+
+I'll be back tomorrow with a new problem.  Until then,
+
+Reuven
