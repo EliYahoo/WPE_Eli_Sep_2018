@@ -1,6 +1,7 @@
 '''
     Topics:
         f-strings - https://realpython.com/python-f-strings/#old-school-string-formatting-in-python
+        eval - evaluate string expression
 '''
 import random
 
